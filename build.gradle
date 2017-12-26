@@ -19,15 +19,16 @@ import org.apache.tools.ant.filters.ReplaceTokens
 // to build and upload everything:  "gradlew bintrayUpload"
 
 plugins {
-    id 'com.jfrog.bintray' version '1.7.3'
+    id 'com.jfrog.bintray' version '1.8.0'
     id 'java'
     id 'maven'
     id 'maven-publish'
-    id 'com.github.johnrengelman.shadow' version '2.0.1'
+    id 'com.github.johnrengelman.shadow' version '2.0.2'
+    id 'com.github.ben-manes.versions' version '0.17.0'
 }
 
 def versionObj = new Version(major: 2, minor: 0)
-def jdaVersion = '3.3.1_316'
+def jdaVersion = '3.4.0_318'
 def date = new Date()
 
 group 'com.jagrosh'
