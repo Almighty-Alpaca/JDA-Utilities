@@ -16,13 +16,28 @@
 package com.jagrosh.jdautilities.modules.utils;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
 import java.nio.file.Paths;
+import java.util.function.Function;
 
 /**
  * @author Kaidan Gustave
  */
 public final class FileUtil
 {
+    public static final Function<? super URI, ? extends URL> URI_TO_URL = uri -> {
+        try
+        {
+            return uri.toURL();
+        }
+        catch (MalformedURLException e)
+        {
+            throw new RuntimeException(e);
+        }
+    };
+
     public static File getFile(String path)
     {
         return getFile(path, "/");

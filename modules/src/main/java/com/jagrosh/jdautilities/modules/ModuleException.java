@@ -20,6 +20,8 @@ package com.jagrosh.jdautilities.modules;
  */
 public class ModuleException extends RuntimeException
 {
+    public ModuleException() {}
+
     public ModuleException(String message)
     {
         super(message);

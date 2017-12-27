@@ -181,40 +181,17 @@ allprojects {
     }
 
     clean {
-        doFirst {
+        doLast {
             // Clean Intellij /out/ directory
             delete { files('/out') }
         }
     }
 
     build {
-        dependsOn clean
-        dependsOn jar
         dependsOn javadocJar
         dependsOn sourcesJar
         dependsOn shadowJar
-
-        jar.mustRunAfter clean
-        javadocJar.mustRunAfter jar
-        sourcesJar.mustRunAfter javadocJar
-        shadowJar.mustRunAfter sourcesJar
     }
-}
-
-task buildAll {
-    group 'build'
-    description 'Builds all projects'
-
-    dependsOn build
-    rootProject.childProjects.values().each { dependsOn it.tasks.getByName("build") }
-}
-
-task cleanAll {
-    group 'build'
-    description 'Cleans all projects'
-
-    dependsOn clean
-    rootProject.childProjects.values().each { dependsOn it.tasks.getByName("clean") }
 }
 
 class Version {

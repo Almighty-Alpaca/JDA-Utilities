@@ -15,7 +15,7 @@
  */
 package com.jagrosh.jdautilities.modules;
 
-import java.net.URLClassLoader;
+import com.jagrosh.jdautilities.modules.providers.ModuleNotFoundException;
 
 /**
  * @author Kaidan Gustave
@@ -23,20 +23,23 @@ import java.net.URLClassLoader;
 @SuppressWarnings("RedundantThrows")
 public interface ModuleFactory<T, M extends Module<T>>
 {
-    M create(URLClassLoader classLoader) throws ModuleException;
+    M create(ClassLoader classLoader) throws ModuleNotFoundException, ModuleException;
 
     String getFileExtension();
 
-    default void check(M module) throws Exception {};
+    default void check(M module) throws Exception {}
 
-    default M load(URLClassLoader classLoader) throws ModuleException
+    default M load(ClassLoader classLoader) throws ModuleNotFoundException, ModuleException
     {
         M module = create(classLoader);
 
-        try {
+        try
+        {
             check(module);
-        } catch(Throwable t) {
-            if(t instanceof ModuleException)
+        }
+        catch (Throwable t)
+        {
+            if (t instanceof ModuleException)
                 throw (ModuleException) t;
             throw new ModuleException("Failed to load module!", t);
         }

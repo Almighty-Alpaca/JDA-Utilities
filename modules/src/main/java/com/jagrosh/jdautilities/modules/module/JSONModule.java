@@ -13,43 +13,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jdautilities.modules;
+package com.jagrosh.jdautilities.modules.module;
 
+import com.jagrosh.jdautilities.modules.Module;
+import com.jagrosh.jdautilities.modules.ModuleException;
+import com.jagrosh.jdautilities.modules.ModuleFactory;
+import com.jagrosh.jdautilities.modules.providers.ModuleNotFoundException;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
-import java.io.InputStream;
-import java.net.URLClassLoader;
+import java.io.IOException;
+import java.net.URL;
 
 /**
  * @author Kaidan Gustave
  */
 public class JSONModule extends Module<JSONObject>
 {
-    JSONModule(URLClassLoader classLoader)
+    JSONModule(ClassLoader classLoader) throws ModuleNotFoundException, ModuleException
     {
-        super(classLoader, cLoader -> {
-            final JSONObject json;
+        super(classLoader, loader -> {
+            URL url = loader.getResource("/module.json");
 
-            InputStream stream = cLoader.getResourceAsStream("/module.json");
-            if(stream == null)
-                throw new ModuleException("Could not find module.json!");
+            if (url == null)
+                throw new ModuleNotFoundException("Could not find module.json!");
 
-            try {
-                json = new JSONObject(new JSONTokener(stream));
-            } catch(JSONException ex) {
+            try
+            {
+                return new JSONObject(new JSONTokener(url.openStream()));
+            }
+            catch (IOException | JSONException ex)
+            {
                 throw new ModuleException("Encountered an error reading module.json", ex);
             }
-
-            return json;
         });
     }
 
     @Override
-    protected void init(URLClassLoader classLoader)
+    protected void init(ClassLoader classLoader)
     {
-        if(moduleConfig.has("name") && !moduleConfig.isNull("name"))
+        if (moduleConfig.has("name") && !moduleConfig.isNull("name"))
         {
             this.name = moduleConfig.get("name").toString();
         }
@@ -58,7 +62,7 @@ public class JSONModule extends Module<JSONObject>
     public static class Factory implements ModuleFactory<JSONObject, JSONModule>
     {
         @Override
-        public JSONModule create(URLClassLoader classLoader) throws ModuleException
+        public JSONModule create(ClassLoader classLoader) throws ModuleNotFoundException, ModuleException
         {
             return new JSONModule(classLoader);
         }

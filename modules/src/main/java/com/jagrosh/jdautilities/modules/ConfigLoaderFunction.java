@@ -15,7 +15,8 @@
  */
 package com.jagrosh.jdautilities.modules;
 
-import java.net.URLClassLoader;
+
+import com.jagrosh.jdautilities.modules.providers.ModuleNotFoundException;
 
 /**
  * A special {@link java.lang.FunctionalInterface FunctionalInterface} that takes a
@@ -27,11 +28,9 @@ import java.net.URLClassLoader;
  * in the case that the caught exception is already a ModuleException, in which case
  * it will just be rethrown as is.
  *
- * @param  <C>
- *         The type of object representing a configuration container to return from {@link #load(URLClassLoader)}
- *
- * @since  2.0
+ * @param <C> The type of object representing a configuration container to return from {@link #load(ClassLoader)}
  * @author Kaidan Gustave
+ * @since 2.0
  */
 @FunctionalInterface
 public interface ConfigLoaderFunction<C>
@@ -44,14 +43,11 @@ public interface ConfigLoaderFunction<C>
      * it's strongly recommended that they opt to throw as many exceptions and let the Module
      * constructor catch and wrap them itself.
      *
-     * @param  classLoader
-     *         The {@link java.net.URLClassLoader URLClassLoader} pointing to a jar for a
-     *         {@link Module Module to load}.
-     *
+     * @param classLoader The {@link java.net.URLClassLoader URLClassLoader} pointing to a jar for a
+     *                    {@link Module Module to load}.
      * @return A configuration object of the type {@link C} for this ConfigLoaderFunction.
-     *
-     * @throws Exception
-     *         If the implementation of this requires an error to be thrown.
+     * @throws ModuleNotFoundException If the cannot be read.
+     * @throws ModuleNotFoundException If the implementation of this requires throws an error.
      */
-    C load(URLClassLoader classLoader) throws Exception;
+    C load(ClassLoader classLoader) throws ModuleNotFoundException, ModuleException;
 }

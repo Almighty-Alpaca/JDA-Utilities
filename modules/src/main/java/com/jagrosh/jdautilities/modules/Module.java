@@ -16,22 +16,25 @@
 package com.jagrosh.jdautilities.modules;
 
 import com.jagrosh.jdautilities.command.Command;
+import com.jagrosh.jdautilities.modules.providers.ModuleNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URLClassLoader;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
  * A abstract {@link com.jagrosh.jdautilities.command.Command Command} module,
  * usable with hot-loading and unloading commands from external jars.
  *
- * @since  2.0
  * @author Kaidan Gustave
+ * @since 2.0
  */
 public abstract class Module<T>
 {
@@ -64,6 +67,8 @@ public abstract class Module<T>
      */
     protected String name = null;
 
+    protected final ClassLoader classloader;
+
     /**
      * Primary super-constructor for a Module implementation.
      *
@@ -92,34 +97,41 @@ public abstract class Module<T>
      * exceptions, as they are the only internal exceptions that will
      * be supported by the Command Modules library.
      *
-     * @param  classLoader
-     *         A {@link java.net.URLClassLoader URLClassLoader} pointing to
-     *         a {@code .jar} file that can be used to load modular commands.
-     * @param  configInit
-     *         A {@link ConfigLoaderFunction ConfigLoaderFunction} used to
-     *         initialize {@link #moduleConfig this Module's config}.
+     * @param classLoader A {@link java.net.URLClassLoader URLClassLoader} pointing to
+     *                    a {@code .jar} file that can be used to load modular commands.
+     * @param configInit  A {@link ConfigLoaderFunction ConfigLoaderFunction} used to
+     *                    initialize {@link #moduleConfig this Module's config}.
      */
-    public Module(URLClassLoader classLoader, ConfigLoaderFunction<T> configInit)
+    public Module(ClassLoader classLoader, ConfigLoaderFunction<T> configInit) throws ModuleNotFoundException, ModuleException
     {
         this.commands = new HashMap<>();
 
-        try
-        {
-            this.moduleConfig = configInit.load(classLoader);
-            init(classLoader);
+        this.moduleConfig = configInit.load(classLoader);
+        init(classLoader);
 
-            classLoader.close();
-        }
-        catch(Exception e)
-        {
-            throw wrap(e);
-        }
+        this.classloader = classLoader;
 
-        if(name == null)
+        if (name == null)
             throw new ModuleException("Name was still null after instantiation of module!");
     }
 
-    protected abstract void init(URLClassLoader classLoader) throws Exception;
+    /**
+     * Wraps an {@link java.lang.Exception Exception} simply as
+     * a {@link ModuleException ModuleException}.
+     * <br>Conventionally, Modules should only throw ModuleExceptions.
+     *
+     * @param e The base Exception. May already be a ModuleException.
+     * @return The Exception, wrapped as a ModuleException
+     */
+    private static ModuleException wrap(Exception e)
+    {
+        if (e instanceof ModuleException)
+            return (ModuleException) e; // If the exception is a ModuleException, we just return it.
+        return new ModuleException("Failed to load module!", e);
+    }
+
+    @SuppressWarnings("RedundantThrows")
+    protected abstract void init(ClassLoader classLoader) throws ModuleException;
 
     public final List<Module.Entry<T>> getCommands()
     {
@@ -137,10 +149,15 @@ public abstract class Module<T>
         return name;
     }
 
+    public ClassLoader getClassloader()
+    {
+        return classloader;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
-        if(!(obj instanceof Module))
+        if (!(obj instanceof Module))
             return false;
 
         Module module = (Module) obj;
@@ -155,32 +172,14 @@ public abstract class Module<T>
     }
 
     /**
-     * Wraps an {@link java.lang.Exception Exception} simply as
-     * a {@link ModuleException ModuleException}.
-     * <br>Conventionally, Modules should only throw ModuleExceptions.
-     *
-     * @param  e
-     *         The base Exception. May already be a ModuleException.
-     *
-     * @return The Exception, wrapped as a ModuleException
-     */
-    private static ModuleException wrap(Exception e)
-    {
-        if(e instanceof ModuleException)
-            return  (ModuleException) e; // If the exception is a ModuleException, we just return it.
-        return new ModuleException("Failed to load module!", e);
-    }
-
-    /**
      * Creates a new {@link Module.Entry module entry} for this Module,
      * mapping it to the class's {@link java.lang.Class#getSimpleName() simple name}.
      *
-     * @param  clazz
-     *         The command class.
+     * @param clazz The command class.
      */
     protected final void createEntry(Class<? extends Command> clazz)
     {
-        commands.put(clazz.getSimpleName().toLowerCase(), new Module.Entry(this, clazz));
+        commands.put(clazz.getSimpleName().toLowerCase(), new Module.Entry<>(this, clazz));
     }
 
     // TODO Documentation
@@ -215,28 +214,32 @@ public abstract class Module<T>
         public Command createInstance(Object... arguments)
         {
             final Constructor<? extends Command> constructor;
-            try {
-                constructor = getCommandClass().getConstructor(Stream.of(arguments)
-                                                                     .map(Object::getClass)
-                                                                     .toArray(Class<?>[]::new));
-            } catch(NoSuchMethodException e) {
-                throw new ModuleException("No such constructor for "+toString());
+            try
+            {
+                constructor = getCommandClass().getConstructor(Stream.of(arguments).map(Object::getClass).toArray(Class<?>[]::new));
+            }
+            catch (NoSuchMethodException e)
+            {
+                throw new ModuleException("No such constructor for " + toString());
             }
 
-            try {
+            try
+            {
                 return constructor.newInstance(arguments);
-            } catch(InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                throw new ModuleException("Encountered an exception when instantiating "+toString());
+            }
+            catch (InstantiationException | IllegalAccessException | InvocationTargetException e)
+            {
+                throw new ModuleException("Encountered an exception when instantiating " + toString());
             }
         }
 
         @Override
         public boolean equals(Object obj)
         {
-            if(!(obj instanceof Entry))
+            if (!(obj instanceof Entry<?>))
                 return false;
 
-            Entry<T> entry = (Entry<T>)obj;
+            Entry<?> entry = (Entry<?>) obj;
             return entry.getModule().equals(getModule()) && entry.getName().equals(getName());
         }
 
@@ -249,7 +252,7 @@ public abstract class Module<T>
         @Override
         public String toString()
         {
-            return "ModuleEntry("+command.getCanonicalName()+")";
+            return "ModuleEntry(" + command.getCanonicalName() + ")";
         }
     }
 }

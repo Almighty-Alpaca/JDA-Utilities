@@ -13,5 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-com.jagrosh.jdautilities.modules.module.HoconModule$Factory
-com.jagrosh.jdautilities.modules.module.JSONModule$Factory
+com.jagrosh.jdautilities.modules.providers.impl.FileModuleProvider

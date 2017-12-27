@@ -13,9 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jdautilities.modules;
+package com.jagrosh.jdautilities.modules.module;
 
 import com.jagrosh.jdautilities.command.Command;
+import com.jagrosh.jdautilities.modules.Module;
+import com.jagrosh.jdautilities.modules.ModuleException;
+import com.jagrosh.jdautilities.modules.ModuleFactory;
+import com.jagrosh.jdautilities.modules.providers.ModuleNotFoundException;
 import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigRenderOptions;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
@@ -23,7 +27,7 @@ import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.net.URLClassLoader;
+import java.net.URL;
 import java.util.List;
 
 /**
@@ -33,9 +37,9 @@ public class HoconModule extends Module<CommentedConfigurationNode>
 {
     private static final String NO_NODE_FOUND_FORMAT = "Module configuration node '%s' was not found!";
 
-    HoconModule(URLClassLoader classLoader)
+    HoconModule(ClassLoader classLoader) throws ModuleNotFoundException, ModuleException
     {
-        super(classLoader, cLoader -> {
+        super(classLoader, loader -> {
             HoconConfigurationLoader.Builder builder = HoconConfigurationLoader.builder();
 
             builder.setRenderOptions(ConfigRenderOptions.defaults().setComments(true));
@@ -43,31 +47,41 @@ public class HoconModule extends Module<CommentedConfigurationNode>
             // We should allow missing so we can handle it ourselves.
             builder.setParseOptions(ConfigParseOptions.defaults().setAllowMissing(true));
 
-            builder.setSource(() -> {
-                return new BufferedReader(new InputStreamReader(cLoader.getResourceAsStream("/module.conf")));
-            });
+            URL url = loader.getResource("/module.conf");
+
+            if (url == null)
+                throw new ModuleNotFoundException("Could not find module.conf!");
+
+            builder.setSource(() -> new BufferedReader(new InputStreamReader(url.openStream())));
 
             HoconConfigurationLoader hoconLoader = builder.build();
 
-            if(!hoconLoader.canLoad()) // If we can't load, we throw an exception explaining ourselves
+            if (!hoconLoader.canLoad()) // If we can't load, we throw an exception explaining ourselves
                 throw new ModuleException("Could not create module because module.conf could not be loaded!");
 
-            return hoconLoader.load();
+            try
+            {
+                return hoconLoader.load();
+            }
+            catch (Exception e)
+            {
+                throw new ModuleException(e);
+            }
         });
     }
 
     @Override
-    protected void init(URLClassLoader classLoader)
+    protected void init(ClassLoader classLoader)
     {
         CommentedConfigurationNode moduleNode = moduleConfig.getNode("module");
 
-        if(moduleNode.isVirtual()) // The base node does not exist
+        if (moduleNode.isVirtual()) // The base node does not exist
             throw new ModuleException(String.format(NO_NODE_FOUND_FORMAT, "module"));
 
         CommentedConfigurationNode nameNode = moduleNode.getNode("name");
 
         // If there is no name this will throw an exception later.
-        if(!nameNode.isVirtual())
+        if (!nameNode.isVirtual())
         {
             this.name = nameNode.getValue().toString();
         }
@@ -76,12 +90,12 @@ public class HoconModule extends Module<CommentedConfigurationNode>
 
         CommentedConfigurationNode commandsNode = moduleNode.getNode("commands");
 
-        if(commandsNode.isVirtual()) // Commands node doesn't exist
+        if (commandsNode.isVirtual()) // Commands node doesn't exist
             throw new ModuleException(String.format(NO_NODE_FOUND_FORMAT, "module.commands"));
 
         List<String> classNameStrings = commandsNode.getList(Object::toString);
 
-        for(String classNameString : classNameStrings)
+        for (String classNameString : classNameStrings)
         {
             try
             {
@@ -89,12 +103,11 @@ public class HoconModule extends Module<CommentedConfigurationNode>
 
                 createEntry(clazz);
             }
-            catch(ClassNotFoundException ex)
+            catch (ClassNotFoundException ex)
             {
-                throw new ModuleException(
-                    String.format("Could not find class specified in module.conf: %s", classNameString), ex);
+                throw new ModuleException(String.format("Could not find class specified in module.conf: %s", classNameString), ex);
             }
-            catch(ClassCastException ex)
+            catch (ClassCastException ex)
             {
                 throw new ModuleException(String.format("Could not cast class '%s' to Command", classNameString), ex);
             }
@@ -110,7 +123,7 @@ public class HoconModule extends Module<CommentedConfigurationNode>
         }
 
         @Override
-        public HoconModule create(URLClassLoader classLoader) throws ModuleException
+        public HoconModule create(ClassLoader classLoader) throws ModuleNotFoundException, ModuleException
         {
             return new HoconModule(classLoader);
         }
