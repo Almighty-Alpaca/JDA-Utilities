@@ -17,9 +17,9 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.apache.tools.ant.filters.ReplaceTokens
 
 plugins {
-    id 'com.github.ben-manes.versions' version '0.17.0'
-    id 'com.github.johnrengelman.shadow' version '2.0.2'
-    id 'com.jfrog.bintray' version '1.8.0'
+    id 'com.github.ben-manes.versions' version '0.20.0'
+    id 'com.github.johnrengelman.shadow' version '2.0.4'
+    id 'com.jfrog.bintray' version '1.8.4'
 }
 
 def versionInfo = [major: '2', minor: '1', revision: '4']
@@ -52,8 +52,8 @@ allprojects {
             json = { [group: 'org.json', name: 'json', version: jsonVersion] }
             junit = { [group: 'junit', name: 'junit', version: junitVersion] }
 
-            artifactId = (rootProject == project? project.name : "$rootProject.name-$project.name").toLowerCase()
-            moduleName = "${group}.jdautilities${rootProject == project? "" : ".${project.name.toLowerCase()}"}"
+            artifactId = (rootProject == project ? project.name : "$rootProject.name-$project.name").toLowerCase()
+            moduleName = "${group}.jdautilities${rootProject == project ? "" : ".${project.name.toLowerCase()}"}"
         }
 
         // Helper task that allows us to do a one-line method call to fully
@@ -66,9 +66,9 @@ allprojects {
 
             jarConfig.manifest {
                 it.attributes(
-                        'Implementation-Title': project.artifactId,
-                        'Implementation-Version': project.version,
-                        'Automatic-Module-Name': "${project.moduleName}"
+                    'Implementation-Title': project.artifactId,
+                    'Implementation-Version': project.version,
+                    'Automatic-Module-Name': "${project.moduleName}"
                 )
             }
         }
@@ -104,30 +104,6 @@ allprojects {
         dependsOn { shadowJar }
     }
 
-    bintray {
-        user = bintrayUsername
-        key = bintrayApiKey
-        publications = ['BintrayRelease']
-        publish = true
-        pkg {
-            repo = 'maven'
-            name = 'JDA-Utilities'
-            licenses = ['Apache-2.0']
-            vcsUrl = 'https://github.com/JDA-Applications/JDA-Utilities'
-            version {
-                name = project.version
-                released = new Date()
-            }
-        }
-    }
-
-    bintrayUpload {
-        dependsOn { rootProject.getTasksByName('build', true) }
-
-        onlyIf { !project.property('bintrayUsername')?.trim()?.empty }
-        onlyIf { !project.property('bintrayApiKey')?.trim()?.empty }
-    }
-
     publishing {
         publications {
             BintrayRelease(MavenPublication) {
@@ -141,7 +117,6 @@ allprojects {
 
 subprojects {
     apply plugin: 'java'
-    apply plugin: 'com.github.ben-manes.versions'
 
     ext {
         // Allow for individual modules to be marked as excluded
@@ -163,9 +138,9 @@ subprojects {
         into 'build/filteredSrc'
 
         filter(ReplaceTokens, tokens: [
-                VERSION_MAJOR:    versionInfo.major,
-                VERSION_MINOR:    versionInfo.minor,
-                VERSION_REVISION: versionInfo.revision
+            VERSION_MAJOR   : versionInfo.major,
+            VERSION_MINOR   : versionInfo.minor,
+            VERSION_REVISION: versionInfo.revision
         ])
     }
 
@@ -216,7 +191,7 @@ subprojects {
     }
 
     afterEvaluate {
-        if(project.includeInParent) {
+        if (project.includeInParent) {
             rootProject.dependencies.compile project
         }
     }
@@ -311,4 +286,53 @@ publishing {
             }
         }
     }
+}
+
+def secretsFile = rootProject.file("secrets.gradle")
+if (secretsFile.exists())
+    apply from: secretsFile
+
+allprojects {
+    bintray {
+        user = getCustomProperty('BINTRAY_NAME')
+        key = getCustomProperty('BINTRAY_KEY')
+        publications = ['BintrayRelease']
+        publish = true
+        pkg {
+            repo = getCustomProperty('BINTRAY_REPO')
+            name = 'JDA-Utilities'
+            licenses = ['Apache-2.0']
+            vcsUrl = 'https://github.com/JDA-Applications/JDA-Utilities'
+            version {
+                name = project.version
+                released = new Date()
+            }
+        }
+    }
+
+    bintrayUpload {
+        dependsOn { rootProject.getTasksByName('build', true) }
+
+        onlyIf { !getCustomProperty('BINTRAY_NAME').empty }
+        onlyIf { !getCustomProperty('BINTRAY_KEY').empty }
+        onlyIf { !getCustomProperty('BINTRAY_REPO').empty }
+    }
+}
+
+String getCustomProperty(String name) {
+    if (project.properties[name])
+        return project.properties[name]
+
+    return ''
+}
+
+tasks.create(name: 'ci') {
+    group = 'ci'
+
+    dependsOn { rootProject.getTasksByName('test', true) }
+
+    dependsOn { rootProject.getTasksByName('build', true) }
+
+    if (System.getenv("TRAVIS_TAG")?.equals(project.version))
+        dependsOn { rootProject.getTasksByName('bintrayUpload', true) }
 }

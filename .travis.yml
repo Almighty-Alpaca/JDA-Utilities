@@ -1,0 +1,8 @@
+language: java
+before_install:
+- openssl aes-256-cbc -K $encrypted_3f3e5eef329b_key -iv $encrypted_3f3e5eef329b_iv -in secrets.gradle.enc -out secrets.gradle -d
+- chmod +x gradlew
+install:
+- "./gradlew wrapper"
+script:
+- "./gradlew ci"

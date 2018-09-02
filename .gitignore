@@ -34,3 +34,6 @@
 /target/
 /.nb-gradle/
 *.nb-gradle-properties
+
+# project files
+secrets\.gradle
